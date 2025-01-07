@@ -5,13 +5,13 @@ import settings
 def create_connection():
     """Создает соединение с базой данных MySQL."""
     try:
-        with connect(
+        conn = connect(
                 host=settings.hostMySQL,
                 user=settings.db_user,
                 password=settings.db_pass,
                 database=settings.database_name
-        ) as conn:
-            return conn
+        )
+        return conn
     except Error as e:
         print(e)
         return None
@@ -22,7 +22,7 @@ def initiate_db():
         cursor = conn.cursor()
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS JournalBLog (
-            id INTEGER PRIMARY KEY,
+            id INT AUTO_INCREMENT PRIMARY KEY,
             time TEXT NOT NULL,
             color TEXT NOT NULL,
             license_number TEXT NOT NULL,
