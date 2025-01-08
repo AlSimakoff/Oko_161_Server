@@ -26,24 +26,26 @@ def create_app():
     return app
 
 
-@app.route('/journalblog', methods=['POST'])
-def add_entry_blog():
+@app.route('/oko161', methods=['POST'])
+def add_entry():
     """Добавляет новой записи в базу данных."""
     data = request.get_json()  # Получаем данные из запроса
     time = data.get('time')
     color = data.get('color')
     license_number = data.get('license_number')
     type_auto = data.get('type_auto')
+    table_name = data.get('table_name')
     if not time or not color or not license_number or not type_auto:
         return jsonify({"error": "one of fields are required"}), 400
-    databaseMySQL.add_entry("JournalBLog",(time,color,license_number,type_auto)) #Добавление записи в бд
+    databaseMySQL.add_entry(table_name, (time, color, license_number, type_auto)) #Добавление записи в бд
     return jsonify({"message": "Entry added successfully"}), 201
 
 
-@app.route('/journalblog', methods=['GET'])
-def get_blog():
+@app.route('/oko161', methods=['GET'])
+def get_entry():
     """Возвращает список записей из базы данных."""
-    results=databaseMySQL.select_all("JournalBLog")
+    table = request.args.get('table', 'None')
+    results=databaseMySQL.select_all(table)
     return jsonify(results)  # Возвращаем данные в формате JSON
 
 
@@ -54,5 +56,5 @@ if __name__ == "__main__":
     # Create tables in the database (if they don't exist)
     with app.app_context():
         db.create_all()
-    databaseMySQL.initiate_db()
+    #databaseMySQL.initiate_db()
     app.run(host=settings.host, port=settings.port)
