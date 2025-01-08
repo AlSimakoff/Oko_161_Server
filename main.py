@@ -1,10 +1,30 @@
 from flask import Flask, request, jsonify
-
+from flask_sqlalchemy import SQLAlchemy
+from admin_panel import init_admin
 
 import databaseMySQL
 import settings
+from models import db
 
 app = Flask(__name__)
+
+def create_app():
+    """Create and configure the Flask application."""
+
+
+    # Configure database connection
+    app.config[
+        'SQLALCHEMY_DATABASE_URI'] = f'mysql+mysqlconnector://{settings.db_user}:{settings.db_pass}@{settings.hostMySQL}/{settings.database_name}'
+    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+    # Initialize database with app context
+    db.init_app(app)
+
+    # Initialize admin panel
+    init_admin(app)
+
+    return app
+
 
 @app.route('/journalblog', methods=['POST'])
 def add_entry_blog():
@@ -29,6 +49,10 @@ def get_blog():
 
 
 if __name__ == "__main__":
+    app = create_app()
 
+    # Create tables in the database (if they don't exist)
+    with app.app_context():
+        db.create_all()
     databaseMySQL.initiate_db()
     app.run(host=settings.host, port=settings.port)
