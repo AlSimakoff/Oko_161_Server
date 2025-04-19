@@ -39,7 +39,9 @@ def check_table(table):
             time TEXT NOT NULL,
             color TEXT NOT NULL,
             license_number TEXT NOT NULL,
-            type_auto TEXT NOT NULL
+            type_auto TEXT NOT NULL,
+            img_plate_url VARCHAR(255),
+            img_car_url VARCHAR(255)
             )''')
 
 
@@ -68,6 +70,6 @@ def add_entry(table, values):
     check_table(table)
     with create_connection() as conn:
         cursor = conn.cursor()
-        cursor.execute(f"INSERT INTO {table} (time, color, license_number, type_auto) VALUES (%s, %s, %s, %s)",
+        cursor.execute(f"INSERT INTO {table} (time, color, license_number, type_auto, img_plate_url, img_car_url ) VALUES (%s, %s, %s, %s, %s, %s)",
                         values)
         conn.commit()
