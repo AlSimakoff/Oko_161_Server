@@ -1,0 +1,47 @@
+{% extends 'admin/master.html' %}
+
+{% block tail %}
+    {{ super() }}
+
+    <style>
+        .img-modal {
+            display: none;
+            position: fixed;
+            z-index: 10000;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: rgba(0,0,0,0.8);
+            justify-content: center;
+            align-items: center;
+        }
+
+        .img-modal img {
+            max-width: 90%;
+            max-height: 90%;
+            box-shadow: 0 0 20px black;
+        }
+    </style>
+
+    <div id="img-modal" class="img-modal" onclick="this.style.display='none'">
+        <img id="img-modal-content" src="">
+    </div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const modal = document.getElementById("img-modal");
+        const modalImg = document.getElementById("img-modal-content");
+
+        // Делегируем обработку кликов всему документу
+        document.body.addEventListener("click", function (e) {
+            const target = e.target;
+            if (target.classList.contains("zoomable-img")) {
+                modal.style.display = "flex";
+                modalImg.src = target.getAttribute("data-full");
+            }
+        });
+    });
+</script>
+
+{% endblock %}

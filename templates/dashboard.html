@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Визуализация въезда машин</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <header>
+    <h1>Визуализация данных о въезде машин на весовую платформу</h1>
+    <p>Интуитивно понятная панель для мониторинга и анализа движения машин.</p>
+  </header>
+
+  <section class="dark-section">
+    <h2>Обзор данных въезда автомобилей</h2>
+    <div class="filter-sort">
+  <label for="tableSelect">Выберите таблицу:</label>
+  <select id="tableSelect"></select>
+
+
+ <a id="fullViewLink" class="btn-full-view" href="#">Полный просмотр</a>
+
+
+  <div class="date-filter">
+    <label for="dateFrom">Фильтр по дате:</label>
+    <input type="date" id="dateFrom" />
+    <span>—</span>
+    <label for="dateTo"></label>
+    <input type="date" id="dateTo" />
+    <button id="filterBtn">Применить</button>
+  </div>
+</div>
+
+
+    <div class="scroll-table">
+      <table>
+        <thead>
+          <tr>
+            <th>Время</th>
+            <th>Номер</th>
+            <th>Фото номера</th>
+            <th>Фото авто</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="middle-background">
+    <h2>Навигация по временным интервалам</h2>
+    <div class="columns">
+      <div class="column">
+        <h3>Дни</h3>
+        <p>Просмотр данных по отдельным дням для детального анализа.</p>
+      </div>
+      <div class="column">
+        <h3>Недели</h3>
+        <p>Сводные данные за неделю для выявления трендов.</p>
+      </div>
+      <div class="column">
+        <h3>Месяцы</h3>
+        <p>Объёмные отчёты за месяц для стратегического планирования.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="dark-section">
+    <h2>Отчёты и аналитика</h2>
+    <div class="chart-container">
+      <canvas id="weightChart"></canvas>
+    </div>
+  </section>
+
+  <footer class="footer-background">
+    <h2>Интеграция с системами управления</h2>
+    <div class="integration-box">
+      <div>
+        <h3>Подключение устройств</h3>
+        <p>Быстрая интеграция с оборудованием весовой платформы.</p>
+      </div>
+      <div>
+        <h3>Передача данных</h3>
+        <p>Автоматическая отправка информации в системы мониторинга.</p>
+      </div>
+      <div>
+        <h3>Аналитика и отчетность</h3>
+        <p>Централизованный контроль и оптимизация бизнес-процессов.</p>
+      </div>
+    </div>
+  </footer>
+
+  <div id="img-modal" class="img-modal">
+    <img id="img-modal-content" />
+  </div>
+
+  <script>
+    const modal = document.getElementById("img-modal");
+    const modalImg = document.getElementById("img-modal-content");
+
+    document.body.addEventListener("click", function (e) {
+      if (e.target.classList.contains("zoomable-img")) {
+        modal.style.display = "flex";
+        modalImg.src = e.target.getAttribute("data-full");
+      }
+    });
+
+    modal.onclick = function () {
+      modal.style.display = "none";
+    };
+
+function updateFullViewLink(tableName) {
+  const link = document.getElementById("fullViewLink");
+  link.href = `/table/${tableName}`;
+}
+
+document.getElementById("tableSelect").addEventListener("change", function () {
+  const tableName = this.value;
+  loadTableData(tableName);
+  updateFullViewLink(tableName);
+});
+
+async function loadTables() {
+  const res = await fetch('/api/tables');
+  const json = await res.json();
+  const select = document.getElementById('tableSelect');
+
+  if (json.success) {
+    json.tables.forEach(name => {
+      const option = document.createElement("option");
+      option.value = name;
+      option.textContent = name;
+      select.appendChild(option);
+    });
+
+    if (json.tables.length > 0) {
+      const firstTable = json.tables[0];
+      loadTableData(firstTable);
+      updateFullViewLink(firstTable);
+    }
+  } else {
+    alert("Ошибка загрузки таблиц: " + json.error);
+  }
+}
+
+    async function loadTableData(tableName) {
+      const res = await fetch(`/api/data/${tableName}`);
+      const json = await res.json();
+      const tableBody = document.getElementById('tableBody');
+      tableBody.innerHTML = '';
+
+      if (!json.success) {
+        alert("Ошибка загрузки данных: " + json.error);
+        return;
+      }
+
+      const fromDate = document.getElementById('dateFrom').value;
+      const toDate = document.getElementById('dateTo').value;
+
+      json.data.forEach(row => {
+        const [id, time, color, license_number, type_auto, img_plate_url, img_car_url] = row;
+        const dateOnly = time.split('T')[0] || time.split(' ')[0];
+        if ((fromDate && dateOnly < fromDate) || (toDate && dateOnly > toDate)) return;
+
+        const plateUrl = img_plate_url ? `/static/uploads/${img_plate_url}` : '';
+        const carUrl = img_car_url ? `/static/uploads/${img_car_url}` : '';
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${time}</td>
+          <td>${license_number}</td>
+          <td>${plateUrl ? `<img class="photo-thumbnail zoomable-img" src="${plateUrl}" data-full="${plateUrl}" />` : ''}</td>
+          <td>${carUrl ? `<img class="photo-thumbnail zoomable-img" src="${carUrl}" data-full="${carUrl}" />` : ''}</td>
+        `;
+        tableBody.appendChild(tr);
+      });
+    }
+
+    document.getElementById("tableSelect").addEventListener("change", function () {
+      loadTableData(this.value);
+    });
+    document.getElementById("dateFrom").addEventListener("change", function () {
+      loadTableData(document.getElementById("tableSelect").value);
+    });
+    document.getElementById("dateTo").addEventListener("change", function () {
+      loadTableData(document.getElementById("tableSelect").value);
+    });
+
+    document.getElementById('filterBtn').addEventListener('click', () => {
+      const startDate = document.getElementById('dateFrom').value;
+      const endDate = document.getElementById('dateTo').value;
+      const tableName = document.getElementById('tableSelect').value;
+
+      if (!startDate || !endDate) {
+        alert("Пожалуйста, выберите обе даты");
+        return;
+      }
+
+      fetch(`/api/data/${tableName}?start=${startDate}&end=${endDate}`)
+        .then(res => res.json())
+        .then(json => {
+          const tableBody = document.getElementById('tableBody');
+          tableBody.innerHTML = '';
+
+          if (json.success) {
+            json.data.forEach(row => {
+              const [id, time, color, license_number, type_auto, img_plate_url, img_car_url] = row;
+              const plateUrl = img_plate_url ? `/static/uploads/${img_plate_url}` : '';
+              const carUrl = img_car_url ? `/static/uploads/${img_car_url}` : '';
+
+              const tr = document.createElement('tr');
+              tr.innerHTML = `
+                <td>${time}</td>
+                <td>${license_number}</td>
+                <td>${plateUrl ? `<img class="photo-thumbnail zoomable-img" src="${plateUrl}" data-full="${plateUrl}" />` : ''}</td>
+                <td>${carUrl ? `<img class="photo-thumbnail zoomable-img" src="${carUrl}" data-full="${carUrl}" />` : ''}</td>
+              `;
+              tableBody.appendChild(tr);
+            });
+          } else {
+            alert("Ошибка загрузки: " + json.error);
+          }
+        });
+    });
+
+    loadTables();
+  </script>
+</body>
+</html>

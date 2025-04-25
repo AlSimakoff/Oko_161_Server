@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, url_for, render_template
 from flask_sqlalchemy import SQLAlchemy
 from admin_panel import init_admin
 
@@ -10,7 +10,9 @@ import os
 from flask import Flask, request, jsonify
 from datetime import datetime
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder="templates")
+
+IMAGE_SAVE_PATH='/static/uploads'
 
 def create_app():
     """Create and configure the Flask application."""
@@ -29,6 +31,53 @@ def create_app():
 
     return app
 
+@app.route('/')
+def dashboard():
+    selected_table = request.args.get('table', 'bolshoilog_img')
+    allowed_tables = databaseMySQL.get_allowed_tables()
+
+    if selected_table not in allowed_tables:
+        selected_table = allowed_tables[0] if allowed_tables else None
+
+    rows = databaseMySQL.select_all(selected_table) if selected_table else []
+
+    return render_template(
+        'dashboard.html',
+        rows=rows,
+        tables=allowed_tables,
+        selected_table=selected_table
+    )
+
+@app.route("/api/data")
+def get_table_data():
+    table = request.args.get("table")
+    try:
+        rows = databaseMySQL.select_all(table)
+        return jsonify({
+            "success": True,
+            "data": rows
+        })
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        })
+
+@app.route("/api/tables")
+def get_tables():
+    try:
+        tables = databaseMySQL.get_allowed_tables()
+        return jsonify({"success": True, "tables": tables})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+@app.route("/api/data/<table>")
+def get_table_data_api(table):  # другое имя функции!
+    try:
+        rows = databaseMySQL.select_all(table)
+        return jsonify({"success": True, "data": rows})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
 
 '''@app.route('/oko161', methods=['POST'])
 def add_entry():
@@ -45,10 +94,7 @@ def add_entry():
     return jsonify({"message": "Entry added successfully"}), 201'''
 
 
-# Путь для сохранения изображений
-IMAGE_SAVE_PATH = "static/uploads"
-# Базовый URL к статическим файлам (если нужно отдавать по HTTP)
-BASE_IMAGE_URL = f'http://{settings.host}/static/uploads'  # Замени на свой актуальный адрес
+
 
 @app.route('/oko161', methods=['POST'])
 def add_entry():
@@ -73,9 +119,6 @@ def add_entry():
     plate_path = os.path.join(IMAGE_SAVE_PATH, plate_filename)
     car_path = os.path.join(IMAGE_SAVE_PATH, car_filename)
 
-    plate_url = f"{BASE_IMAGE_URL}/{plate_filename}"
-    car_url = f"{BASE_IMAGE_URL}/{car_filename}"
-
     try:
         # Сохраняем изображения на диск
         if img_plate_b64:
@@ -88,10 +131,10 @@ def add_entry():
             with open(car_path, 'wb') as f:
                 f.write(car_data)
 
-        # Добавляем в базу данных все данные, включая ссылки на изображения
+        # Добавляем в базу только имена файлов
         databaseMySQL.add_entry(
             table_name,
-            (time, color, license_number, type_auto, plate_url, car_url)
+            (time, color, license_number, type_auto, plate_filename, car_filename)
         )
 
         return jsonify({"message": "Entry added successfully"}), 201
@@ -101,12 +144,92 @@ def add_entry():
 
 
 
+
 @app.route('/oko161', methods=['GET'])
 def get_entry():
     """Возвращает список записей из базы данных."""
     table = request.args.get('table', 'None')
     results=databaseMySQL.select_all(table)
-    return jsonify(results)  # Возвращаем данные в формате JSON
+
+    output = []
+    for row in results:
+        row_dict = {
+            "id": row[0],
+            "time": row[1],
+            "color": row[2],
+            "license_number": row[3],
+            "type_auto": row[4],
+            "img_plate_url": url_for('static', filename=f"uploads/{row[5]}", _external=True) if row[5] else None,
+            "img_car_url": url_for('static', filename=f"uploads/{row[6]}", _external=True) if row[6] else None,
+        }
+        output.append(row_dict)
+
+    return jsonify(output)
+
+
+
+
+@app.route('/table/<table_name>')
+def full_table_view(table_name):
+    if table_name not in databaseMySQL.get_allowed_tables():
+        return "Таблица не найдена", 404
+
+    data = databaseMySQL.select_all(table_name)
+    return render_template("table_view.html", table_name=table_name, data=data)
+
+
+
+@app.route('/api/entries/<table_name>')
+def get_entries(table_name):
+    if table_name not in databaseMySQL.get_allowed_tables():
+        return jsonify({"success": False, "error": "Invalid table"})
+
+    query = f"SELECT * FROM {table_name} WHERE 1=1"
+    filters = []
+
+    license_number = request.args.get("license_number")
+    date_from = request.args.get("from")
+    date_to = request.args.get("to")
+
+    if license_number:
+        query += " AND license_number LIKE %s"
+        filters.append(f"%{license_number}%")
+
+    if date_from:
+        query += " AND time >= %s"
+        filters.append(date_from)
+    if date_to:
+        query += " AND time <= %s"
+        filters.append(date_to)
+
+    with databaseMySQL.create_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(query, filters)
+        data = cursor.fetchall()
+
+    return jsonify({"success": True, "data": data})
+
+
+@app.route('/api/entry/<table_name>/<int:entry_id>', methods=['PUT', 'DELETE'])
+def update_or_delete_entry(table_name, entry_id):
+    if table_name not in databaseMySQL.get_allowed_tables():
+        return jsonify({"success": False, "error": "Invalid table"})
+
+    with databaseMySQL.create_connection() as conn:
+        cursor = conn.cursor()
+        if request.method == "DELETE":
+            cursor.execute(f"DELETE FROM {table_name} WHERE id = %s", (entry_id,))
+            conn.commit()
+            return jsonify({"success": True, "message": "Deleted"})
+        elif request.method == "PUT":
+            data = request.json
+            cursor.execute(f'''
+                UPDATE {table_name}
+                SET time=%s, color=%s, license_number=%s, type_auto=%s
+                WHERE id = %s
+            ''', (data["time"], data["color"], data["license_number"], data["type_auto"], entry_id))
+            conn.commit()
+            return jsonify({"success": True, "message": "Updated"})
 
 
 

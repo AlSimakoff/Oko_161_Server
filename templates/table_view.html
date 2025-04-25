@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <title>Полный просмотр таблицы</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+  <header>
+    <a class="btn-return" href="/">← Назад на главную</a>
+    <h1>Полный просмотр таблицы: {{ table_name }}</h1>
+    <label class="theme-switch">
+      <input type="checkbox" id="themeToggle" />
+      <span class="slider"></span> Темная тема
+    </label>
+  </header>
+
+  <section class="filter-bar">
+    <input type="date" id="filterDateStart" />
+    <input type="date" id="filterDateEnd" />
+    <input type="text" id="searchPlate" placeholder="Поиск по номеру" />
+    <button onclick="applyFilters()">Фильтровать</button>
+  </section>
+
+  <section class="table-section">
+    <table id="fullTable">
+      <thead>
+        <tr>
+          <th>Время</th>
+          <th>Цвет</th>
+          <th>Номер</th>
+          <th>Тип</th>
+          <th>Фото номера</th>
+          <th>Фото авто</th>
+          <th>Редактировать</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in data %}
+        <tr>
+          <td>{{ row[1] }}</td>
+          <td>{{ row[2] }}</td>
+          <td>{{ row[3] }}</td>
+          <td>{{ row[4] }}</td>
+          <td>
+            {% if row[5] %}
+              <img class="photo-thumb" src="/static/uploads/{{ row[5] }}" />
+            {% endif %}
+          </td>
+          <td>
+            {% if row[6] %}
+              <img class="photo-thumb" src="/static/uploads/{{ row[6] }}" />
+            {% endif %}
+          </td>
+          <td>
+            <button class="edit-btn" onclick="openEditPopup({{ row[0] }}, '{{ row[3] }}', '{{ row[5] }}', '{{ row[6] }}')">✏️</button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  <!-- Попап редактирования -->
+  <div id="editPopup" class="popup hidden">
+    <div class="popup-content">
+      <h2>Редактирование номера</h2>
+      <div class="popup-images">
+        <img id="popupPlateImg" src="" alt="Фото номера">
+        <img id="popupCarImg" src="" alt="Фото авто">
+      </div>
+      <input id="editNumber" type="text" class="popup-number" />
+      <button onclick="submitEdit()">Отправить запрос на редактирование</button>
+    </div>
+  </div>
+
+  <!-- Попап увеличенных изображений -->
+  <div class="image-popup hidden"></div>
+
+  <script>
+    const themeToggle = document.getElementById("themeToggle");
+    themeToggle.addEventListener("change", () => {
+      document.documentElement.setAttribute("data-theme", themeToggle.checked ? "dark" : "light");
+    });
+
+    function applyFilters() {
+      alert("Фильтр применён (логика фильтрации по вашему выбору)");
+    }
+
+    function openEditPopup(id, number, plateImg, carImg) {
+      document.getElementById("editPopup").classList.remove("hidden");
+      document.getElementById("editPopup").dataset.id = id;
+      document.getElementById("editNumber").value = number;
+      document.getElementById("popupPlateImg").src = "/static/uploads/" + plateImg;
+      document.getElementById("popupCarImg").src = "/static/uploads/" + carImg;
+    }
+
+    function submitEdit() {
+      const id = document.getElementById("editPopup").dataset.id;
+      const newNumber = document.getElementById("editNumber").value;
+
+      fetch(`/api/request_edit/{{ table_name }}/${id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ license_number: newNumber })
+      }).then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            alert("Запрос отправлен");
+            location.reload();
+          }
+        });
+    }
+
+    document.getElementById("editPopup").addEventListener("click", e => {
+      if (e.target.id === "editPopup") {
+        e.target.classList.add("hidden");
+      }
+    });
+
+    // Попап увеличенного фото
+    const imagePopup = document.querySelector('.image-popup');
+    document.addEventListener('click', e => {
+      if (e.target.classList.contains('photo-thumb')) {
+        imagePopup.innerHTML = `<img src="${e.target.src}" />`;
+        imagePopup.classList.remove('hidden');
+      }
+    });
+    imagePopup.addEventListener('click', () => {
+      imagePopup.classList.add('hidden');
+      imagePopup.innerHTML = '';
+    });
+  </script>
+</body>
+</html>
