@@ -130,6 +130,26 @@
       imagePopup.classList.add('hidden');
       imagePopup.innerHTML = '';
     });
+    document.addEventListener('click', e => {
+  if (e.target.classList.contains('photo-thumb')) {
+    imagePopup.innerHTML = `<img src="${e.target.src}" />`;
+    imagePopup.classList.remove('hidden');
+  }
+});
+
+// Клик по картинкам в ПОПАПЕ
+document.querySelectorAll('#editPopup img').forEach(img => {
+  img.addEventListener('click', (e) => {
+    imagePopup.innerHTML = `<img src="${e.target.src}" />`;
+    imagePopup.classList.remove('hidden');
+  });
+});
+
+// Клик на фон попапа закрывает его
+imagePopup.addEventListener('click', () => {
+  imagePopup.classList.add('hidden');
+  imagePopup.innerHTML = '';
+});
   </script>
 </body>
 </html>

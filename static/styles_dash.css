@@ -1,0 +1,125 @@
+ body {
+      font-family: 'Inter', sans-serif;
+      margin: 0;
+      background-color: #1e1e2f;
+      color: #f1f1f1;
+      line-height: 1.6;
+    }
+    header {
+      background: #2a2a3c;
+      padding: 1.5rem 2rem;
+      border-bottom: 1px solid #444;
+    }
+    header h1 {
+      margin: 0;
+      font-size: 1.5rem;
+    }
+    section {
+      padding: 2rem;
+    }
+    .dark-section {
+      background-color: #2a2a3c;
+      border-radius: 12px;
+      margin-bottom: 2rem;
+    }
+    .middle-background {
+      background-color: #252537;
+      border-radius: 12px;
+      margin-bottom: 2rem;
+    }
+    .filter-sort {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+    select, input[type="date"] {
+      background: #1f1f2e;
+      color: #f1f1f1;
+      padding: 0.5rem;
+      border: 1px solid #444;
+      border-radius: 8px;
+    }
+    button {
+      background-color: #4fd1c5;
+      color: #000;
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+    }
+    button:hover {
+      background-color: #38b2ac;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1rem;
+      background-color: #2a2a3c;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    th, td {
+      padding: 12px 16px;
+      border-bottom: 1px solid #444;
+    }
+    th {
+      background-color: #1f1f2e;
+      text-align: left;
+    }
+    tr:hover {
+      background-color: #353549;
+    }
+    .photo-thumbnail {
+      max-width: 100px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .columns {
+      display: flex;
+      gap: 2rem;
+      justify-content: space-between;
+    }
+    .column {
+      flex: 1;
+      background-color: #1f1f2e;
+      padding: 1rem;
+      border-radius: 8px;
+    }
+    footer {
+      background-color: #2a2a3c;
+      padding: 2rem;
+    }
+    .integration-box {
+      display: flex;
+      gap: 2rem;
+      flex-wrap: wrap;
+    }
+    .integration-box > div {
+      flex: 1;
+      background-color: #1f1f2e;
+      padding: 1rem;
+      border-radius: 8px;
+    }
+    .img-modal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: rgba(0, 0, 0, 0.85);
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+    .img-modal img {
+      max-width: 90%;
+      max-height: 90%;
+      border-radius: 12px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.5);
+    }
+    .btn-full-view {
+      color: #4fd1c5;
+      text-decoration: none;
+      font-weight: 600;
+    }
