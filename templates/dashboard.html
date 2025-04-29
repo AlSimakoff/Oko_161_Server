@@ -21,7 +21,12 @@
       height: 100vh;
       display: flex;
       flex-direction: column;
-      gap: 1rem;
+      gap: 0.5rem;
+    }
+    .sidebar h2 {
+      margin-bottom: 1rem;
+      font-size: 1.2rem;
+      color: #ccc;
     }
     .sidebar a {
       color: #f1f1f1;
@@ -62,14 +67,18 @@
       color: #aaa;
     }
     .charts {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 2rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      justify-content: space-between;
     }
-    canvas {
+    .charts canvas {
       background-color: #2a2a3c;
       padding: 1rem;
       border-radius: 12px;
+      flex: 1 1 48%;
+      max-width: 48%;
+      height: 250px !important;
     }
     .full-view-link {
       display: inline-block;
@@ -85,31 +94,29 @@
 </head>
 <body>
   <nav class="sidebar">
-    <h2>Навигация</h2>
+    <h2>Меню</h2>
     <a href="#">Статистика</a>
-    <a href="#">Полный просмотр</a>
-    <a href="#">История</a>
-    <a href="#">Поиск</a>
-    <a href="#">Настройки</a>
+    <a href="/table/сегодня">Просмотр журналов</a>
+    <a href="#">Поиск по номеру</a>
   </nav>
   <main class="main">
-    <h1>Обзор за 29 апреля 2025</h1>
+    <h1>Обзор за {{ today }}</h1>
 
     <div class="card-grid">
       <div class="card">
-        <h2>128</h2>
+        <h2>{{ today_count }}</h2>
         <p>машин за сегодня</p>
       </div>
       <div class="card">
-        <h2>7 мин</h2>
+        <h2>{{ avg_minutes }} мин</h2>
         <p>среднее время между въездами</p>
       </div>
       <div class="card">
-        <h2>12</h2>
+        <h2>{{ errors }}</h2>
         <p>ошибок распознавания</p>
       </div>
       <div class="card">
-        <h2>2,134</h2>
+        <h2>{{ monthly }}</h2>
         <p>въездов за месяц</p>
       </div>
     </div>
@@ -117,13 +124,15 @@
     <div class="charts">
       <canvas id="chartHourly"></canvas>
       <canvas id="chartWeek"></canvas>
-      <canvas id="chartType"></canvas>
     </div>
 
     <a class="full-view-link" href="/table/сегодня">Полный просмотр</a>
   </main>
 
   <script>
+    const hourlyData = {{ hourly_data | tojson }};
+    const weeklyData = {{ weekly_data | tojson }};
+
     const ctx1 = document.getElementById('chartHourly').getContext('2d');
     new Chart(ctx1, {
       type: 'bar',
@@ -131,7 +140,7 @@
         labels: [...Array(24).keys()].map(h => h + ':00'),
         datasets: [{
           label: 'Въезды по часам',
-          data: [3,5,8,6,4,7,10,12,14,18,20,22,24,20,15,10,8,7,6,5,3,2,1,0],
+          data: hourlyData,
           backgroundColor: '#4fd1c5'
         }]
       }
@@ -144,21 +153,9 @@
         labels: ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'],
         datasets: [{
           label: 'Въезды за неделю',
-          data: [120, 135, 150, 160, 145, 110, 90],
+          data: weeklyData,
           borderColor: '#4fd1c5',
           fill: false
-        }]
-      }
-    });
-
-    const ctx3 = document.getElementById('chartType').getContext('2d');
-    new Chart(ctx3, {
-      type: 'doughnut',
-      data: {
-        labels: ['Грузовые', 'Легковые'],
-        datasets: [{
-          data: [60, 40],
-          backgroundColor: ['#4fd1c5', '#718096']
         }]
       }
     });

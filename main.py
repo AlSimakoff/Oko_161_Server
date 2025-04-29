@@ -8,7 +8,7 @@ from models import db
 import base64
 import os
 from flask import Flask, request, jsonify
-from datetime import datetime
+from datetime import datetime, timedelta
 
 app = Flask(__name__, template_folder="templates")
 
@@ -39,14 +39,54 @@ def dashboard():
     if selected_table not in allowed_tables:
         selected_table = allowed_tables[0] if allowed_tables else None
 
-    rows = databaseMySQL.select_all(selected_table) if selected_table else []
+    today = datetime.now().date()
+    start_of_day = datetime.combine(today, datetime.min.time())
+    end_of_day = datetime.combine(today, datetime.max.time())
+
+    rows_today = databaseMySQL.select_by_time_range(selected_table, start_of_day, end_of_day)
+
+    # 1. Кол-во машин за сегодня
+    today_count = len(rows_today)
+
+    # 2. Среднее время между въездами
+    times = [row[1] for row in rows_today if isinstance(row[1], datetime)]
+    times.sort()
+    avg_minutes = round(sum((t2 - t1).total_seconds() for t1, t2 in zip(times, times[1:])) / 60 / max(len(times) - 1, 1), 2) if len(times) > 1 else 0
+
+    # 3. Ошибки распознавания — если номер отсутствует
+    errors = sum(1 for row in rows_today if not row[3] or row[3].strip() == '')
+
+    # 4. За месяц
+    start_of_month = today.replace(day=1)
+    end_of_month = datetime.now()
+    rows_month = databaseMySQL.select_by_time_range(selected_table, start_of_month, end_of_month)
+    monthly = len(rows_month)
+
+    # 5. Почасовая статистика
+    hourly_data = [0] * 24
+    for row in rows_today:
+        if isinstance(row[1], datetime):
+            hourly_data[row[1].hour] += 1
+
+    # 6. Статистика по дням недели (0=Пн ... 6=Вс)
+    week_data = databaseMySQL.select_last_n_days(selected_table, 7)
+    weekly_data = [0] * 7
+    for row in week_data:
+        if isinstance(row[1], datetime):
+            weekday = row[1].weekday()
+            weekly_data[weekday] += 1
 
     return render_template(
         'dashboard.html',
-        rows=rows,
-        tables=allowed_tables,
-        selected_table=selected_table
+        today=today.strftime('%d.%m.%Y'),
+        today_count=today_count,
+        avg_minutes=avg_minutes,
+        errors=errors,
+        monthly=monthly,
+        hourly_data=hourly_data,
+        weekly_data=weekly_data
     )
+
 
 @app.route("/api/data")
 def get_table_data():

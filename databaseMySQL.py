@@ -1,3 +1,5 @@
+from datetime import timedelta, datetime
+
 from mysql.connector import connect, Error
 
 import settings
@@ -73,3 +75,39 @@ def add_entry(table, values):
         cursor.execute(f"INSERT INTO {table} (time, color, license_number, type_auto, img_plate_url, img_car_url ) VALUES (%s, %s, %s, %s, %s, %s)",
                         values)
         conn.commit()
+
+def select_by_time_range(table, start_time, end_time):
+    """
+    Извлекает все записи из указанной таблицы за заданный промежуток времени.
+    Аргументы:
+    - table: имя таблицы.
+    - start_time: начало временного диапазона (datetime).
+    - end_time: конец временного диапазона (datetime).
+    """
+    allowed_tables = get_allowed_tables()
+    if table not in allowed_tables:
+        raise ValueError(f"Invalid table name: {table}")
+
+    # Преобразуем даты в строковый формат MySQL DATETIME
+    start_time_str = start_time.strftime('%Y-%m-%d %H:%M:%S')
+    end_time_str = end_time.strftime('%Y-%m-%d %H:%M:%S')
+
+    query = f"""
+        SELECT `id`, `time`, `color`, `license_number`, `type_auto`, `img_plate_url`, `img_car_url`
+        FROM `{table}`
+        WHERE `time` BETWEEN %s AND %s
+    """
+
+    with create_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(query, (start_time_str, end_time_str))  # Используем безопасную подстановку значений
+        results = cursor.fetchall()
+        return results
+
+
+
+def select_last_n_days(table, n):
+    """Получает все записи за последние N дней."""
+    end_time = datetime.now()
+    start_time = end_time - timedelta(days=n)
+    return select_by_time_range(table, start_time.strftime("%Y-%m-%d %H:%M:%S"), end_time.strftime("%Y-%m-%d %H:%M:%S"))
