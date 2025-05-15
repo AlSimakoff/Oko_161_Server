@@ -1,22 +1,22 @@
-from datetime import timedelta, datetime
-
+from datetime import datetime, timedelta, date
 from mysql.connector import connect, Error
+from sqlalchemy.cyextension.processors import str_to_time
 
 import settings
 
 def create_connection():
-    """Создает соединение с базой данных MySQL."""
     try:
         conn = connect(
-                host=settings.hostMySQL,
-                user=settings.db_user,
-                password=settings.db_pass,
-                database=settings.database_name
+            host=settings.hostMySQL,
+            user=settings.db_user,
+            password=settings.db_pass,
+            database=settings.database_name
         )
         return conn
     except Error as e:
         print(e)
         return None
+
 
 
 def initiate_db():
@@ -38,10 +38,10 @@ def check_table(table):
         cursor.execute(f'''
             CREATE TABLE IF NOT EXISTS {table} (
             id INT AUTO_INCREMENT PRIMARY KEY,
-            time TEXT NOT NULL,
-            color TEXT NOT NULL,
-            license_number TEXT NOT NULL,
-            type_auto TEXT NOT NULL,
+            time DATETIME,
+            color TEXT,
+            license_number TEXT,
+            type_auto TEXT,
             img_plate_url VARCHAR(255),
             img_car_url VARCHAR(255)
             )''')
@@ -53,7 +53,8 @@ def get_allowed_tables():
         cursor = conn.cursor()
         cursor.execute("SHOW TABLES;")  # Запрос для получения всех таблиц
         tables = cursor.fetchall()  # Получаем все имена таблиц
-        return [table[0] for table in tables]  # Возвращаем только имена таблиц
+        #return [table[0] for table in tables]  # Возвращаем только имена таблиц
+        return ['bolshoilog_img']
 
 def select_all(table):
     """Извлекает все записи из указанной таблицы."""
@@ -91,6 +92,8 @@ def select_by_time_range(table, start_time, end_time):
     # Преобразуем даты в строковый формат MySQL DATETIME
     start_time_str = start_time.strftime('%Y-%m-%d %H:%M:%S')
     end_time_str = end_time.strftime('%Y-%m-%d %H:%M:%S')
+    #start_time_str = start_time
+    #end_time_str = end_time
 
     query = f"""
         SELECT `id`, `time`, `color`, `license_number`, `type_auto`, `img_plate_url`, `img_car_url`
@@ -110,4 +113,21 @@ def select_last_n_days(table, n):
     """Получает все записи за последние N дней."""
     end_time = datetime.now()
     start_time = end_time - timedelta(days=n)
-    return select_by_time_range(table, start_time.strftime("%Y-%m-%d %H:%M:%S"), end_time.strftime("%Y-%m-%d %H:%M:%S"))
+    return select_by_time_range(table, start_time, end_time)
+
+def get_table_name_mappings():
+    # Возвращает словарь {table_base: assigment}
+    with create_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT table_base, assigment FROM table_names")
+        result = cursor.fetchall()
+        return {row[0]: row[1] for row in result}
+
+def search_plate_in_table(table, plate_fragment):
+    query = f"SELECT * FROM {table} WHERE license_number LIKE %s"
+    like_expr = f"%{plate_fragment}%"
+    with create_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(query, (like_expr,))
+        result = cursor.fetchall()
+        return result

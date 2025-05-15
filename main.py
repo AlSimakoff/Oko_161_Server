@@ -9,6 +9,14 @@ import base64
 import os
 from flask import Flask, request, jsonify
 from datetime import datetime, timedelta
+from utils import (
+    get_today_entry_count,
+    get_average_time,
+    get_recognition_errors,
+    get_monthly_count,
+    get_hourly_data,
+    get_weekly_data
+)
 
 app = Flask(__name__, template_folder="templates")
 
@@ -40,41 +48,14 @@ def dashboard():
         selected_table = allowed_tables[0] if allowed_tables else None
 
     today = datetime.now().date()
-    start_of_day = datetime.combine(today, datetime.min.time())
-    end_of_day = datetime.combine(today, datetime.max.time())
 
-    rows_today = databaseMySQL.select_by_time_range(selected_table, start_of_day, end_of_day)
-
-    # 1. Кол-во машин за сегодня
-    today_count = len(rows_today)
-
-    # 2. Среднее время между въездами
-    times = [row[1] for row in rows_today if isinstance(row[1], datetime)]
-    times.sort()
-    avg_minutes = round(sum((t2 - t1).total_seconds() for t1, t2 in zip(times, times[1:])) / 60 / max(len(times) - 1, 1), 2) if len(times) > 1 else 0
-
-    # 3. Ошибки распознавания — если номер отсутствует
-    errors = sum(1 for row in rows_today if not row[3] or row[3].strip() == '')
-
-    # 4. За месяц
-    start_of_month = today.replace(day=1)
-    end_of_month = datetime.now()
-    rows_month = databaseMySQL.select_by_time_range(selected_table, start_of_month, end_of_month)
-    monthly = len(rows_month)
-
-    # 5. Почасовая статистика
-    hourly_data = [0] * 24
-    for row in rows_today:
-        if isinstance(row[1], datetime):
-            hourly_data[row[1].hour] += 1
-
-    # 6. Статистика по дням недели (0=Пн ... 6=Вс)
-    week_data = databaseMySQL.select_last_n_days(selected_table, 7)
-    weekly_data = [0] * 7
-    for row in week_data:
-        if isinstance(row[1], datetime):
-            weekday = row[1].weekday()
-            weekly_data[weekday] += 1
+    # Используем функции из utils.py
+    today_count = get_today_entry_count(selected_table)
+    avg_minutes = get_average_time(selected_table)
+    errors = get_recognition_errors(selected_table)
+    monthly = get_monthly_count(selected_table)
+    hourly_data = get_hourly_data(selected_table)
+    weekly_data = get_weekly_data(selected_table)
 
     return render_template(
         'dashboard.html',
@@ -87,6 +68,34 @@ def dashboard():
         weekly_data=weekly_data
     )
 
+
+@app.route('/api/stats/<table_name>')
+def get_stats(table_name):
+    if table_name not in databaseMySQL.get_allowed_tables():
+        return jsonify({"success": False, "error": "Invalid table name"}), 400
+
+
+
+    try:
+        today_count = get_today_entry_count(table_name)
+        avg_minutes = get_average_time(table_name)
+        errors = get_recognition_errors(table_name)
+        monthly = get_monthly_count(table_name)
+        hourly = get_hourly_data(table_name)
+        weekly = get_weekly_data(table_name)
+
+        return jsonify({
+            "success": True,
+            "today_count": today_count,
+            "avg_minutes": avg_minutes,
+            "errors": errors,
+            "monthly": monthly,
+            "hourly_data": hourly,
+            "weekly_data": weekly
+        })
+
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route("/api/data")
 def get_table_data():
@@ -149,8 +158,8 @@ def add_entry():
     img_plate_b64 = data.get('img_plate')
     img_car_b64 = data.get('img_car')
 
-    if not time or not color or not license_number or not type_auto:
-        return jsonify({"error": "one of fields is missing"}), 400
+    if not time:
+        return jsonify({"error": "time is missing"}), 400
 
     # Генерация уникальных имён файлов
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -184,6 +193,21 @@ def add_entry():
 
 
 
+@app.route('/table/journals')
+def show_journals():
+    allowed_tables = databaseMySQL.get_allowed_tables()
+    name_map = databaseMySQL.get_table_name_mappings()
+
+    cards = []
+    for table in allowed_tables:
+        readable_name = name_map.get(table, table)  # fallback на оригинальное имя
+        cards.append({
+            'table': table,
+            'name': readable_name
+        })
+
+    return render_template('journals.html', cards=cards)
+
 
 @app.route('/oko161', methods=['GET'])
 def get_entry():
@@ -207,6 +231,36 @@ def get_entry():
     return jsonify(output)
 
 
+@app.route('/search', methods=['GET', 'POST'])
+def search_by_plate():
+    query = request.form.get('plate') if request.method == 'POST' else None
+    results = []
+
+    if query:
+        allowed_tables = databaseMySQL.get_allowed_tables()
+        table_names = databaseMySQL.get_table_name_mappings()  # {table_base: assigment}
+
+        for table in allowed_tables:
+            matches = databaseMySQL.search_plate_in_table(table, query)
+            for row in matches:
+                try:
+                    timestamp = row[1] if isinstance(row[1], datetime) else datetime.strptime(row[1],
+                                                                                              '%Y-%m-%d %H:%M:%S')
+                except:
+                    timestamp = datetime.min
+
+                results.append({
+                    'time': timestamp,
+                    'number': row[3],
+                    'table': table,
+                    'table_name': table_names.get(table, table),
+                    'image_path': row[6]
+                })
+
+        # Сортировка по дате убыванию
+        results.sort(key=lambda x: x['time'], reverse=True)
+
+    return render_template('search.html', results=results, query=query or '')
 
 
 @app.route('/table/<table_name>')
