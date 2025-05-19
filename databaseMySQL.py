@@ -49,12 +49,7 @@ def check_table(table):
 
 def get_allowed_tables():
     """Получает список всех таблиц в базе данных."""
-    with create_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute("SHOW TABLES;")  # Запрос для получения всех таблиц
-        tables = cursor.fetchall()  # Получаем все имена таблиц
-        #return [table[0] for table in tables]  # Возвращаем только имена таблиц
-        return ['bolshoilog_img']
+    return settings.allowed_tables
 
 def select_all(table):
     """Извлекает все записи из указанной таблицы."""

@@ -1,3 +1,4 @@
+# Импорты необходимых библиотек и модулей
 from flask import Flask, request, jsonify, url_for, render_template
 from flask_sqlalchemy import SQLAlchemy
 from admin_panel import init_admin
@@ -7,7 +8,6 @@ import settings
 from models import db
 import base64
 import os
-from flask import Flask, request, jsonify
 from datetime import datetime, timedelta
 from utils import (
     get_today_entry_count,
@@ -18,29 +18,32 @@ from utils import (
     get_weekly_data
 )
 
+# Создание экземпляра Flask-приложения
 app = Flask(__name__, template_folder="templates")
 
-IMAGE_SAVE_PATH='/static/uploads'
+# Путь для сохранения изображений
+IMAGE_SAVE_PATH = '/static/uploads'
 
 def create_app():
-    """Create and configure the Flask application."""
+    """Создаёт и настраивает Flask-приложение."""
 
-
-    # Configure database connection
+    # Конфигурация подключения к базе данных
     app.config[
-        'SQLALCHEMY_DATABASE_URI'] = f'mysql+mysqlconnector://{settings.db_user}:{settings.db_pass}@{settings.hostMySQL}/{settings.database_name}'
+        'SQLALCHEMY_DATABASE_URI'
+    ] = f'mysql+mysqlconnector://{settings.db_user}:{settings.db_pass}@{settings.hostMySQL}/{settings.database_name}'
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-    # Initialize database with app context
+    # Инициализация SQLAlchemy с контекстом приложения
     db.init_app(app)
 
-    # Initialize admin panel
+    # Инициализация административной панели
     init_admin(app)
 
     return app
 
 @app.route('/')
 def dashboard():
+    """Главная страница: отображает статистику по выбранной таблице."""
     selected_table = request.args.get('table', 'bolshoilog_img')
     allowed_tables = databaseMySQL.get_allowed_tables()
 
@@ -49,7 +52,7 @@ def dashboard():
 
     today = datetime.now().date()
 
-    # Используем функции из utils.py
+    # Получение статистических данных
     today_count = get_today_entry_count(selected_table)
     avg_minutes = get_average_time(selected_table)
     errors = get_recognition_errors(selected_table)
@@ -57,6 +60,7 @@ def dashboard():
     hourly_data = get_hourly_data(selected_table)
     weekly_data = get_weekly_data(selected_table)
 
+    # Отображение данных на dashboard.html
     return render_template(
         'dashboard.html',
         today=today.strftime('%d.%m.%Y'),
@@ -68,15 +72,14 @@ def dashboard():
         weekly_data=weekly_data
     )
 
-
 @app.route('/api/stats/<table_name>')
 def get_stats(table_name):
+    """API для получения статистики по таблице."""
     if table_name not in databaseMySQL.get_allowed_tables():
         return jsonify({"success": False, "error": "Invalid table name"}), 400
 
-
-
     try:
+        # Получение и возврат статистики
         today_count = get_today_entry_count(table_name)
         avg_minutes = get_average_time(table_name)
         errors = get_recognition_errors(table_name)
@@ -99,21 +102,17 @@ def get_stats(table_name):
 
 @app.route("/api/data")
 def get_table_data():
+    """API: получить все строки из таблицы."""
     table = request.args.get("table")
     try:
         rows = databaseMySQL.select_all(table)
-        return jsonify({
-            "success": True,
-            "data": rows
-        })
+        return jsonify({"success": True, "data": rows})
     except Exception as e:
-        return jsonify({
-            "success": False,
-            "error": str(e)
-        })
+        return jsonify({"success": False, "error": str(e)})
 
 @app.route("/api/tables")
 def get_tables():
+    """API: получить список разрешённых таблиц."""
     try:
         tables = databaseMySQL.get_allowed_tables()
         return jsonify({"success": True, "tables": tables})
@@ -121,35 +120,20 @@ def get_tables():
         return jsonify({"success": False, "error": str(e)})
 
 @app.route("/api/data/<table>")
-def get_table_data_api(table):  # другое имя функции!
+def get_table_data_api(table):
+    """API: альтернатива получения данных таблицы."""
     try:
         rows = databaseMySQL.select_all(table)
         return jsonify({"success": True, "data": rows})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
 
-'''@app.route('/oko161', methods=['POST'])
-def add_entry():
-    """Добавляет новой записи в базу данных."""
-    data = request.get_json()  # Получаем данные из запроса
-    time = data.get('time')
-    color = data.get('color')
-    license_number = data.get('license_number')
-    type_auto = data.get('type_auto')
-    table_name = data.get('table_name')
-    if not time or not color or not license_number or not type_auto:
-        return jsonify({"error": "one of fields are required"}), 400
-    databaseMySQL.add_entry(table_name, (time, color, license_number, type_auto)) #Добавление записи в бд
-    return jsonify({"message": "Entry added successfully"}), 201'''
-
-
-
-
 @app.route('/oko161', methods=['POST'])
 def add_entry():
-    """Добавляет новую запись в базу данных и сохраняет изображения."""
+    """Добавляет новую запись и сохраняет изображения."""
     data = request.get_json()
 
+    # Получение данных из запроса
     time = data.get('time')
     color = data.get('color')
     license_number = data.get('license_number')
@@ -161,7 +145,7 @@ def add_entry():
     if not time:
         return jsonify({"error": "time is missing"}), 400
 
-    # Генерация уникальных имён файлов
+    # Генерация имён файлов
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     plate_filename = f"{license_number}_{timestamp}_plate.jpg"
     car_filename = f"{license_number}_{timestamp}_car.jpg"
@@ -169,7 +153,7 @@ def add_entry():
     car_path = os.path.join(IMAGE_SAVE_PATH, car_filename)
 
     try:
-        # Сохраняем изображения на диск
+        # Сохраняем изображения
         if img_plate_b64:
             plate_data = base64.b64decode(img_plate_b64)
             with open(plate_path, 'wb') as f:
@@ -180,7 +164,7 @@ def add_entry():
             with open(car_path, 'wb') as f:
                 f.write(car_data)
 
-        # Добавляем в базу только имена файлов
+        # Сохраняем запись в базу
         databaseMySQL.add_entry(
             table_name,
             (time, color, license_number, type_auto, plate_filename, car_filename)
@@ -191,29 +175,24 @@ def add_entry():
     except Exception as e:
         return jsonify({"error": f"Ошибка при обработке данных: {str(e)}"}), 500
 
-
-
 @app.route('/table/journals')
 def show_journals():
+    """Отображает список таблиц в виде карточек."""
     allowed_tables = databaseMySQL.get_allowed_tables()
     name_map = databaseMySQL.get_table_name_mappings()
 
     cards = []
     for table in allowed_tables:
-        readable_name = name_map.get(table, table)  # fallback на оригинальное имя
-        cards.append({
-            'table': table,
-            'name': readable_name
-        })
+        readable_name = name_map.get(table, table)
+        cards.append({'table': table, 'name': readable_name})
 
     return render_template('journals.html', cards=cards)
 
-
 @app.route('/oko161', methods=['GET'])
 def get_entry():
-    """Возвращает список записей из базы данных."""
+    """Получает список записей с изображениями."""
     table = request.args.get('table', 'None')
-    results=databaseMySQL.select_all(table)
+    results = databaseMySQL.select_all(table)
 
     output = []
     for row in results:
@@ -230,22 +209,21 @@ def get_entry():
 
     return jsonify(output)
 
-
 @app.route('/search', methods=['GET', 'POST'])
 def search_by_plate():
+    """Поиск по номеру автомобиля по всем таблицам."""
     query = request.form.get('plate') if request.method == 'POST' else None
     results = []
 
     if query:
         allowed_tables = databaseMySQL.get_allowed_tables()
-        table_names = databaseMySQL.get_table_name_mappings()  # {table_base: assigment}
+        table_names = databaseMySQL.get_table_name_mappings()
 
         for table in allowed_tables:
             matches = databaseMySQL.search_plate_in_table(table, query)
             for row in matches:
                 try:
-                    timestamp = row[1] if isinstance(row[1], datetime) else datetime.strptime(row[1],
-                                                                                              '%Y-%m-%d %H:%M:%S')
+                    timestamp = row[1] if isinstance(row[1], datetime) else datetime.strptime(row[1], '%Y-%m-%d %H:%M:%S')
                 except:
                     timestamp = datetime.min
 
@@ -257,24 +235,23 @@ def search_by_plate():
                     'image_path': row[6]
                 })
 
-        # Сортировка по дате убыванию
+        # Сортировка по дате (новые — сверху)
         results.sort(key=lambda x: x['time'], reverse=True)
 
     return render_template('search.html', results=results, query=query or '')
 
-
 @app.route('/table/<table_name>')
 def full_table_view(table_name):
+    """Отображает полную таблицу по названию."""
     if table_name not in databaseMySQL.get_allowed_tables():
         return "Таблица не найдена", 404
 
     data = databaseMySQL.select_all(table_name)
     return render_template("table_view.html", table_name=table_name, data=data)
 
-
-
 @app.route('/api/entries/<table_name>')
 def get_entries(table_name):
+    """Фильтрация записей по номеру и дате."""
     if table_name not in databaseMySQL.get_allowed_tables():
         return jsonify({"success": False, "error": "Invalid table"})
 
@@ -303,9 +280,9 @@ def get_entries(table_name):
 
     return jsonify({"success": True, "data": data})
 
-
 @app.route('/api/entry/<table_name>/<int:entry_id>', methods=['PUT', 'DELETE'])
 def update_or_delete_entry(table_name, entry_id):
+    """Обновление или удаление записи по ID."""
     if table_name not in databaseMySQL.get_allowed_tables():
         return jsonify({"success": False, "error": "Invalid table"})
 
@@ -325,13 +302,13 @@ def update_or_delete_entry(table_name, entry_id):
             conn.commit()
             return jsonify({"success": True, "message": "Updated"})
 
-
-
+# Точка входа
 if __name__ == "__main__":
     app = create_app()
 
-    # Create tables in the database (if they don't exist)
+    # Создание таблиц в БД, если не существуют
     with app.app_context():
         db.create_all()
-    #databaseMySQL.initiate_db()
+
+    # Запуск приложения
     app.run(host=settings.host, port=settings.port)

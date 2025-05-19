@@ -6,4 +6,4 @@ db_user='root'
 db_pass='Simakoff'
 hostMySQL='localhost'
 # Путь для сохранения изображений
-
+allowed_tables=['bolshoilog_img']
